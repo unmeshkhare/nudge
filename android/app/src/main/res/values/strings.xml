@@ -4,5 +4,7 @@
     <string name="title_activity_main">Nudge</string>
     <string name="package_name">com.graviton.nudge</string>
     <string name="custom_url_scheme">com.graviton.nudge</string>
-    <string name="widget_desc">Random Pip messages, your streak and next task</string>
+    <string name="widget_desc">Your companion with moods, your streak and your next task</string>
+    <string name="a11y_label">Nudge Focus Shield</string>
+    <string name="a11y_desc">Lets Nudge send you back to the home screen when you open an app you chose to block during a focus session. Nudge never reads your screen, messages or passwords. It only sees which app was opened.</string>
 </resources>

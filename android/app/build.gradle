@@ -1,5 +1,9 @@
 apply plugin: 'com.android.application'
 
+def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInteger()
+def ksPath = System.getenv("NUDGE_KEYSTORE")
+def hasKs = ksPath != null && file(ksPath).exists()
+
 android {
     namespace = "com.graviton.nudge"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +11,8 @@ android {
         applicationId "com.graviton.nudge"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode runNumber + 100
+        versionName "2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,7 +20,20 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasKs) {
+            nudge {
+                storeFile file(ksPath)
+                storePassword "nudgepass"
+                keyAlias "nudge"
+                keyPassword "nudgepass"
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (hasKs) { signingConfig signingConfigs.nudge }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
