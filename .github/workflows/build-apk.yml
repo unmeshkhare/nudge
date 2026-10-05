@@ -16,8 +16,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      
       - run: npm ci
+      - run: npm install --no-save typescript
       - run: npx cap sync android
       - working-directory: android
         run: |
