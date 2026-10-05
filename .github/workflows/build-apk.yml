@@ -1,8 +1,10 @@
 name: Build Nudge APK
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,15 +18,31 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      - name: Restore signing key
+        env:
+          KS: ${{ secrets.NUDGE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > $RUNNER_TEMP/nudge.keystore
+            echo "NUDGE_KEYSTORE=$RUNNER_TEMP/nudge.keystore" >> $GITHUB_ENV
+          else
+            echo "::warning::NUDGE_KEYSTORE_B64 secret missing - APK will not install over the old one"
+          fi
       - run: npm ci
       - run: npm install --no-save typescript
       - run: npx cap sync android
-      - working-directory: android
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+      - name: Build
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Rename
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Nudge.apk
       - uses: actions/upload-artifact@v4
         with:
           name: Nudge-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          path: Nudge.apk
+      - uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: latest
+          files: Nudge.apk
+          make_latest: true
