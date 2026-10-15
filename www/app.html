@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#080b14">
-<meta name="nudge-ui" content="2">
+<meta name="nudge-ui" content="4">
 <title>Nudge</title>
 <style>
 :root{--sat:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));--sab:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px));--bg:#080b14;--card:rgba(255,255,255,.04);--line:rgba(255,255,255,.09);--txt:#e8ecf8;--dim:#7f89a8;--c1:#6ff3ff;--c2:#8a7bff;--pink:#ff7ad9;--gold:#ffd166;--ok:#5dffb0}
@@ -98,9 +98,11 @@ input:focus,textarea:focus{border-color:var(--c1)}
 .orbwrap{position:relative;width:260px;height:260px;margin:6px auto 4px}
 .orbwrap canvas{position:absolute;inset:0;width:100%;height:100%}
 .orbwrap svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);pointer-events:none}
-.orbtxt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-shadow:0 0 6px rgba(0,0,0,.5),0 2px 18px rgba(0,0,0,.75)}
-.orbtxt b{font-size:50px;font-weight:300;letter-spacing:.04em;font-variant-numeric:tabular-nums}
-.orbtxt small{color:rgba(232,236,248,.75);letter-spacing:.2em;font-size:11px;text-transform:uppercase}
+.orbtxt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 14px rgba(0,0,0,.7)}
+.orbtxt::before{content:"";position:absolute;left:50%;top:50%;width:66%;height:66%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(4,7,16,.74),rgba(4,7,16,.5) 62%,rgba(4,7,16,0))}
+.orbtxt>*{position:relative}
+.orbtxt b{font-size:50px;font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.orbtxt small{color:#fff;opacity:.95;font-weight:600;letter-spacing:.2em;font-size:11px;text-transform:uppercase}
 .opts{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0}
 .pdot{width:26px;height:26px;border-radius:50%;border:2px solid transparent;padding:0}
 .pdot.on{border-color:#fff}
@@ -131,6 +133,12 @@ canvas.scratch{border-radius:16px;touch-action:none;display:block;margin:10px au
 .arow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);font-size:14px}
 .arow input{width:20px;height:20px;flex:none}
 .ai{width:30px;height:30px;border-radius:9px;background:rgba(138,123,255,.25);display:grid;place-items:center;font-weight:700;flex:none}
+.arow.dn span:last-child{opacity:.5;text-decoration:line-through}
+.arow input:disabled{opacity:.5}
+.tag{font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid var(--line);margin-right:6px;white-space:nowrap}
+.tag.t-office{color:var(--c1);border-color:rgba(111,243,255,.4)}
+.tag.t-home{color:var(--gold);border-color:rgba(255,209,102,.4)}
+.tag.t-fun{color:var(--pink);border-color:rgba(255,122,217,.4)}
 #toast{position:fixed;top:calc(var(--sat) + 10px);left:50%;transform:translate(-50%,-120px);background:#151b33;border:1px solid var(--c2);padding:10px 16px;border-radius:14px;z-index:60;transition:transform .35s;font-size:14px;max-width:90%;text-align:center}
 #toast.show{transform:translate(-50%,0)}
 .conf{position:fixed;top:-30px;font-size:22px;z-index:70;pointer-events:none;animation:fall linear forwards}
@@ -168,12 +176,15 @@ ol.steps li{margin:6px 0}
 
 <script>
 'use strict';
-const UI_V=2;
+const UI_V=4;
 const UPDATE_URL='https://raw.githubusercontent.com/unmeshkhare/nudge/main/www/app.html';
 const CHARS={
   pip:{n:'Pip',a:'#9ff6ff',b:'#7a63ff',acc:'#6ff3ff',cheek:'#ff7ad9',glow:'rgba(138,123,255,.45)',kind:'antenna'},
   rosy:{n:'Rosy',a:'#ffd3ec',b:'#ff6fae',acc:'#ffd166',cheek:'#ff4f8b',glow:'rgba(255,111,174,.42)',kind:'ears'},
-  mint:{n:'Mint',a:'#c8ffe2',b:'#22c79d',acc:'#eaff7a',cheek:'#ff9ab8',glow:'rgba(34,199,157,.42)',kind:'leaf'}
+  mint:{n:'Mint',a:'#c8ffe2',b:'#22c79d',acc:'#eaff7a',cheek:'#ff9ab8',glow:'rgba(34,199,157,.42)',kind:'leaf'},
+  kage:{n:'Kage',a:'#5b6388',b:'#1d2140',acc:'#ff4d4d',cheek:'#1d2140',glow:'rgba(255,77,77,.35)',kind:'ninja',nocheek:1,brow:1},
+  volt:{n:'Volt',a:'#eef4fb',b:'#6d86a8',acc:'#ffd166',cheek:'#6d86a8',glow:'rgba(109,134,168,.5)',kind:'robot',shape:'square',nocheek:1,brow:1},
+  fang:{n:'Fang',a:'#d7deee',b:'#5b6b8c',acc:'#eef2fb',cheek:'#5b6b8c',glow:'rgba(91,107,140,.45)',kind:'wolf',nocheek:1,brow:1}
 };
 const MOODS=['happy','excited','love','sleepy','focus','worried','sad','surprised'];
 let _gid=0;
@@ -183,7 +194,7 @@ function pipSVG(ch,mood,o){
   const m=MOODS.indexOf(mood)<0?'happy':mood;
   const gid='pg'+(++_gid);
   const ink='#0a0e1a';
-  const cheeks=a=>`<circle cx="33" cy="72" r="6" fill="${C.cheek}" opacity="${a}"/><circle cx="87" cy="72" r="6" fill="${C.cheek}" opacity="${a}"/>`;
+  const cheeks=a=>C.nocheek?'':`<circle cx="33" cy="72" r="6" fill="${C.cheek}" opacity="${a}"/><circle cx="87" cy="72" r="6" fill="${C.cheek}" opacity="${a}"/>`;
   const eyes=(rx,ry,dy)=>{dy=dy||0;return `<g class="eyes"><ellipse cx="44" cy="${58+dy}" rx="${rx}" ry="${ry}" fill="${ink}"/><ellipse cx="76" cy="${58+dy}" rx="${rx}" ry="${ry}" fill="${ink}"/><circle cx="46.2" cy="${54.6+dy}" r="2.5" fill="#fff"/><circle cx="78.2" cy="${54.6+dy}" r="2.5" fill="#fff"/></g>`};
   const heart=cx=>`<path d="M${cx} 65C${cx-9} 58 ${cx-10} 51 ${cx-5} 49.5C${cx-2} 48.5 ${cx} 50.5 ${cx} 52C${cx} 50.5 ${cx+2} 48.5 ${cx+5} 49.5C${cx+10} 51 ${cx+9} 58 ${cx} 65z" fill="#ff3d7f"/><circle cx="${cx-3.5}" cy="53" r="1.7" fill="#fff" opacity=".85"/>`;
   const brows=`<path d="M36 49L50 44.5M70 44.5L84 49" stroke="${ink}" stroke-width="3" stroke-linecap="round" fill="none"/>`;
@@ -205,8 +216,37 @@ function pipSVG(ch,mood,o){
   }else{ // surprised
     face=`<g class="eyes"><circle cx="44" cy="58" r="8" fill="#fff" stroke="${ink}" stroke-width="2.6"/><circle cx="76" cy="58" r="8" fill="#fff" stroke="${ink}" stroke-width="2.6"/><circle cx="44" cy="59" r="3.2" fill="${ink}"/><circle cx="76" cy="59" r="3.2" fill="${ink}"/></g>`+`<path d="M35 44q9-6 18 0M67 44q9-6 18 0" stroke="${ink}" stroke-width="2.8" stroke-linecap="round" fill="none"/>`+cheeks(.5)+`<ellipse cx="60" cy="77" rx="5.2" ry="7" fill="${ink}"/>`;
   }
-  let behind='',front='';
-  if(C.kind==='ears'){
+  if(C.brow&&['happy','excited','love','sleepy','focus'].indexOf(m)>=0)face+=`<path d="M33 43L52 45.5M68 45.5L87 43" stroke="${ink}" stroke-width="4.6" stroke-linecap="round" fill="none"/>`;
+  const SQ=C.shape==='square';
+  const BODY=SQ?'M28 14h64q16 0 16 16v62q0 16-16 16H28q-16 0-16-16V30q0-16 16-16z':'M60 14c28 0 46 22 46 48s-16 46-46 46S14 88 14 62 32 14 60 14z';
+  let behind='',front='',mid='';
+  const mir=p=>p.replace(/(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g,(a,x,y)=>(120-x)+' '+y);
+  if(C.kind==='horns'){
+    const h='M31 30C22 20 21 9 26 1C35 8 41 18 43 27z';
+    behind=`<path d="${h}" fill="${C.acc}"/><path d="${mir(h)}" fill="${C.acc}"/>`;
+    mid=`<ellipse cx="60" cy="86" rx="22" ry="17" fill="#d9ffd9" opacity=".35"/>`;
+    front=`<ellipse cx="54" cy="68" rx="1.8" ry="2.4" fill="${ink}" opacity=".7"/><ellipse cx="66" cy="68" rx="1.8" ry="2.4" fill="${ink}" opacity=".7"/>`;
+  }else if(C.kind==='bear'){
+    behind=`<circle cx="26" cy="26" r="14" fill="${C.b}"/><circle cx="94" cy="26" r="14" fill="${C.b}"/><circle cx="26" cy="26" r="7" fill="${C.acc}" opacity=".8"/><circle cx="94" cy="26" r="7" fill="${C.acc}" opacity=".8"/>`;
+    mid=`<ellipse cx="60" cy="80" rx="24" ry="19" fill="${C.acc}" opacity=".92"/>`;
+    front=`<path d="M53.5 64.5h13q0 7-6.5 7t-6.5-7z" fill="${ink}"/>`;
+  }else if(C.kind==='ninja'){
+    mid=`<rect x="19" y="46" width="82" height="44" rx="20" fill="#ffe3c6"/><rect x="0" y="27" width="120" height="11" fill="${C.acc}"/><rect x="0" y="35" width="120" height="3" fill="#b82a2a"/>`;
+    front=`<path d="M104 29q11-5 15 5q-8-2-13 2zM104 37q11 4 13 15q-8-6-13-9z" fill="${C.acc}"/>`;
+  }else if(C.kind==='viking'){
+    const h='M22 32C8 30 3 18 5 6C15 10 24 18 28 26z';
+    behind=`<path d="${h}" fill="#f4e9c8"/><path d="${mir(h)}" fill="#f4e9c8"/>`;
+    mid=`<path d="M10 44C12 8 108 8 110 44Q60 33 10 44z" fill="#b9c0d4"/><path d="M10 44Q60 33 110 44" stroke="#7c86a2" stroke-width="3" fill="none"/><rect x="56" y="10" width="8" height="26" rx="3" fill="#8d97b3"/><path d="M14 72Q60 86 106 72Q108 104 60 118Q12 104 14 72z" fill="${C.acc}"/>`;
+  }else if(C.kind==='robot'){
+    behind=`<rect x="3" y="50" width="12" height="24" rx="5" fill="#8d97b3"/><rect x="105" y="50" width="12" height="24" rx="5" fill="#8d97b3"/>`;
+    mid=`<rect x="21" y="39" width="78" height="50" rx="15" fill="#dff3ff" stroke="#6d86a8" stroke-width="2.5"/><circle cx="21" cy="24" r="2.8" fill="#8d97b3"/><circle cx="99" cy="24" r="2.8" fill="#8d97b3"/><circle cx="21" cy="98" r="2.8" fill="#8d97b3"/><circle cx="99" cy="98" r="2.8" fill="#8d97b3"/><rect x="40" y="95" width="40" height="5" rx="2.5" fill="#6d86a8" opacity=".6"/>`;
+    front=`<line x1="60" y1="14" x2="60" y2="5" stroke="#8d97b3" stroke-width="3" stroke-linecap="round"/><path d="M63 -2L55 6h5l-3 7l9-9h-5z" fill="${C.acc}"/>`;
+  }else if(C.kind==='wolf'){
+    const e='M24 38L25 3L53 21z',ei='M29 30L29.5 12L43 22z';
+    behind=`<path d="${e}" fill="${C.b}"/><path d="${mir(e)}" fill="${C.b}"/><path d="${ei}" fill="#aeb8d4"/><path d="${mir(ei)}" fill="#aeb8d4"/>`;
+    mid=`<ellipse cx="60" cy="82" rx="21" ry="18" fill="${C.acc}" opacity=".9"/>`;
+    front=`<path d="M53.5 64.5h13q0 7-6.5 7t-6.5-7z" fill="${ink}"/><path d="M17 60L3 70L19 77z" fill="${C.acc}"/><path d="M103 60L117 70L101 77z" fill="${C.acc}"/>`;
+  }else if(C.kind==='ears'){
     behind=`<circle cx="27" cy="27" r="13" fill="${C.b}"/><circle cx="93" cy="27" r="13" fill="${C.b}"/><circle cx="27" cy="27" r="6.5" fill="${C.cheek}" opacity=".55"/><circle cx="93" cy="27" r="6.5" fill="${C.cheek}" opacity=".55"/>`;
   }else if(C.kind==='leaf'){
     front=`<line x1="60" y1="16" x2="60" y2="7" stroke="${C.acc}" stroke-width="2.5" stroke-linecap="round"/><path d="M60 8C52 -1 42 3 42 3C44 12 53 15 60 8z" fill="${C.acc}"/><path d="M60 8C68 -1 78 3 78 3C76 12 67 15 60 8z" fill="${C.acc}" opacity=".8"/>`;
@@ -220,7 +260,7 @@ function pipSVG(ch,mood,o){
       :'translate(0 -6) translate(60 110) scale(.97 1.05) translate(-60 -110)';
   }
   const size=o.size?` width="${o.size}" height="${o.size}"`:'';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${o.vb||'0 0 120 120'}"${size}><defs><radialGradient id="${gid}" cx=".35" cy=".25" r=".85"><stop offset="0" stop-color="${C.a}"/><stop offset="1" stop-color="${C.b}"/></radialGradient></defs><ellipse cx="60" cy="113" rx="28" ry="5" fill="rgba(0,0,0,.35)"/><g class="body"${tf?` transform="${tf}"`:''}>${behind}<path d="M60 14c28 0 46 22 46 48s-16 46-46 46S14 88 14 62 32 14 60 14z" fill="url(#${gid})"/><ellipse cx="42" cy="34" rx="14" ry="7.5" fill="#fff" opacity=".2" transform="rotate(-25 42 34)"/>${front}${face}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${o.vb||'0 0 120 120'}"${size}><defs><radialGradient id="${gid}" cx=".35" cy=".25" r=".85"><stop offset="0" stop-color="${C.a}"/><stop offset="1" stop-color="${C.b}"/></radialGradient><clipPath id="c${gid}"><path d="${BODY}"/></clipPath></defs><ellipse cx="60" cy="113" rx="28" ry="5" fill="rgba(0,0,0,.35)"/><g class="body"${tf?` transform="${tf}"`:''}>${behind}<path d="${BODY}" fill="url(#${gid})"/><g clip-path="url(#c${gid})">${mid}</g><ellipse cx="42" cy="30" rx="14" ry="6.5" fill="#fff" opacity=".16" transform="rotate(-25 42 30)"/>${front}${face}</g></svg>`;
 }
 
 
@@ -247,15 +287,18 @@ const MSG={
  focus:["Breathe in… breathe out.","Quiet mind, steady hands.","One thing at a time.","I'm right here with you."],
  love:["Everything's done — you star!","All checked off. I'm so proud 💜","Perfect day! Go relax."]
 };
-const TEMPLATES=["Deep work","Emails","Exercise","Read","Tidy up","Plan tomorrow","Study","Walk"];
+const CATS=[{id:'office',e:'💼',n:'Office'},{id:'home',e:'🏠',n:'Home'},{id:'fun',e:'🎮',n:'Fun'}];
+const CAT={};CATS.forEach(c=>CAT[c.id]=c);
+const TPL={office:['Deep work','Emails','Meeting prep','Plan tomorrow'],home:['Tidy up','Laundry','Cook','Groceries','Water plants'],fun:['Read','Walk','Draw','Music','Game']};
+const ROUT=[['morning','🌅','Morning'],['evening','🌙','Evening']];
 const PALS={aurora:['#6ff3ff','#8a7bff','#ff7ad9'],ocean:['#00c6ff','#0072ff','#7af7ff'],sunset:['#ffb36b','#ff5e8a','#ffd166'],forest:['#5dffb0','#1fb5a3','#d4ff6f'],sakura:['#ffc2e2','#ff7ad9','#c9a7ff'],mono:['#ffffff','#9aa6c8','#5b6890']};
 const ORB_STYLES=[['orb','Glow'],['lava','Lava'],['morph','Morph'],['nebula','Nebula'],['breathe','Breathe']];
 
 /* ============ STATE ============ */
 const def=()=>({tasks:[],coins:20,xp:0,streak:0,best:0,lastActive:null,freezes:0,items:{},cards:1,
  dayDate:null,doneCount:0,questDone:false,perfectDone:false,pomos:0,timer:null,lastBonus:null,totalDone:0,
- msDone:{},lastNudge:null,focusMin:0,blocked:0,shieldApps:[],lastCheck:0,
- settings:{def:25,brk:5,daily:'09:00',sound:true,char:'pip',orb:'orb',pal:'aurora',shield:false,updateUrl:''}});
+ msDone:{},lastNudge:null,focusMin:0,lastCheck:0,routines:{morning:[],evening:[]},rlog:{},
+ settings:{def:25,brk:5,daily:'09:00',sound:true,char:'pip',orb:'orb',pal:'aurora',updateUrl:''}});
 let S;
 try{const raw=JSON.parse(localStorage.getItem(KEY)||'{}');S=Object.assign(def(),raw);S.settings=Object.assign(def().settings,raw.settings||{});delete S.hat}catch(e){S=def()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}queueSync()}
@@ -282,6 +325,7 @@ function rollover(){
     S.tasks.forEach(k=>{if(!k.done&&k.date<t){k.date=t;k.notified=false;k.carried=true;k.at=''}});
     S.tasks=S.tasks.filter(k=>!(k.done&&dayDiff(k.date,t)>30));
     if(sel<t)sel=t;
+    Object.keys(S.rlog||{}).forEach(d=>{if(dayDiff(d,t)>60)delete S.rlog[d]});
     save()}
 }
 function streakAlive(){
@@ -350,7 +394,7 @@ async function syncNative(){
     const p=await LN.getPending();if(p.notifications.length)await LN.cancel({notifications:p.notifications.map(n=>({id:n.id}))});
     const list=[],now=Date.now();
     S.tasks.forEach(k=>{if(!k.done&&k.at&&list.length<120){const[h,m]=k.at.split(':').map(Number);const d=parseD(k.date);d.setHours(h,m,0,0);
-      if(d.getTime()>now)list.push({id:hashId(k.id),title:'⏰ '+k.title,body:k.min+' min — want to start?',schedule:{at:d,allowWhileIdle:true},smallIcon:'ic_stat_nudge'})}});
+      if(d.getTime()>now)list.push({id:hashId(k.id),title:'⏰ '+k.title,body:k.nt?'Time to do it ✅':k.min+' min — want to start?',schedule:{at:d,allowWhileIdle:true},smallIcon:'ic_stat_nudge'})}});
     const t=S.timer;
     if(t&&!t.paused&&t.endAt>now)list.push({id:2,title:t.kind==='focus'?'Focus complete 🎉':'Break over',body:t.kind==='focus'?'Take a break — you earned it.':'Ready for the next one?',schedule:{at:new Date(t.endAt),allowWhileIdle:true},smallIcon:'ic_stat_nudge'});
     const dm=S.settings.daily;
@@ -509,11 +553,11 @@ function completeTask(id){
   if(Math.random()<.22)surprise();
   render();
 }
-function addTasks(text,min,at,date){
+function addTasks(text,min,at,date,cat,nt){
   const parts=text.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);let n=0;
   const d=(date&&date>=today())?date:today();
   parts.forEach(p=>{let m=min||S.settings.def;const mm=p.match(/^(.*\S)\s+(\d{1,3})$/);if(mm){p=mm[1];m=Math.min(240,Math.max(1,+mm[2]))}
-    S.tasks.push({id:uid(),title:p,min:m,date:d,done:false,at:at||'',notified:false});n++});
+    S.tasks.push({id:uid(),title:p,min:m,date:d,done:false,at:at||'',notified:false,cat:cat||'office',nt:!!nt});n++});
   save();
   if(n){beep([700],.06);if(at)askNotifIfNeeded();toast(n+(n>1?' tasks':' task')+' added to '+dayLabel(d).toLowerCase())}
 }
@@ -522,58 +566,86 @@ function askNotifIfNeeded(){
   if('Notification' in window&&Notification.permission==='default')askNotif()
 }
 
-/* ============ FOCUS SHIELD (app blocking) ============ */
-async function shieldSync(){
-  if(!NN)return;
-  try{
-    const t=S.timer;
-    if(S.settings.shield&&S.shieldApps.length&&t&&t.kind==='focus'&&!t.paused&&t.endAt>Date.now())
-      await NN.setBlock({packages:S.shieldApps.map(a=>a.pkg),until:t.endAt});
-    else await NN.clearBlock();
-  }catch(e){}
+/* ============ TASK ACTIONS ============ */
+const catOf=k=>k.cat||'office';
+function moveTask(id,date){
+  const k=S.tasks.find(x=>x.id===id);if(!k||!date||date<today())return false;
+  k.date=date;k.at='';k.notified=false;k.carried=false;save();toast('Moved to '+dayLabel(date).toLowerCase());return true;
 }
-async function shieldReport(){
-  if(!NN)return;
-  try{const s=await NN.blockStatus();if(s.count>0){S.blocked+=s.count;save();toast('🛡️ Shield stopped '+s.count+' distraction'+(s.count>1?'s':'')+' — nice willpower!');await NN.resetCount()}}catch(e){}
+function deleteTask(id){
+  S.tasks=S.tasks.filter(x=>x.id!==id);
+  if(S.timer&&S.timer.taskId===id)S.timer=null;
+  save();
 }
-async function shieldStatus(){
-  const el=$('#shS');if(!el||!NN)return;
-  try{const s=await NN.blockStatus();
-    if(!el.isConnected)return;
-    el.innerHTML=s.enabled?'✅ Permission is on — blocking is ready.':'⚠️ Needs the Accessibility permission (tap “Permission” for 2 quick steps).'}catch(e){}
-}
-function openShieldHelp(){
-  modal(`<h3>ALLOW BLOCKING</h3><p>Android needs your OK once. Nudge never reads your screen — it only sees which app opened.</p>
-  <ol class="steps"><li>Tap <b>App info</b> → top-right <b>⋮</b> → <b>Allow restricted settings</b> (Android 13+; skip if you don't see it).</li><li>Tap <b>Accessibility</b> → find <b>Nudge Focus Shield</b> → switch it <b>ON</b> → Allow.</li></ol>
-  <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" id="hA">App info</button><button class="btn solid" id="hB">Accessibility</button></div>
-  <button class="btn ghost" data-close style="margin-top:12px">Done</button>`,()=>{shieldStatus()},el=>{
-    el.querySelector('#hA').onclick=()=>NN&&NN.openAppInfo();
-    el.querySelector('#hB').onclick=()=>NN&&NN.openAccessibilitySettings();
+function openTaskSheet(id){
+  const k=S.tasks.find(x=>x.id===id);if(!k)return;
+  const t=today();
+  const body=k.done?`<p>${esc(k.title)} is already done.</p>`:`
+   <input id="et" value="${esc(k.title)}" style="margin-bottom:8px">
+   <div class="row" style="justify-content:center;flex-wrap:wrap;margin-bottom:8px">${CATS.map(c=>`<button class="pill" data-ec="${c.id}">${c.e} ${c.n}</button>`).join('')}</div>
+   <div class="row" style="justify-content:center;margin-bottom:10px"><span class="mini">Minutes</span><input type="number" id="em" min="1" max="240" value="${k.min}" style="width:80px"><button class="pill" id="ent"></button></div>
+   <button class="btn solid" id="esv">Save changes</button>
+   <div class="mini" style="margin:16px 0 6px">Move to another day</div>
+   <div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" id="mtm">Tomorrow</button>${k.date!==t?'<button class="btn" id="mto">Today</button>':''}</div>
+   <div class="row" style="margin-top:8px"><input type="date" id="md" min="${t}" value="${addDays(k.date>t?k.date:t,1)}"><button class="btn" id="mgo">Move</button></div>`;
+  modal(`<h3>TASK</h3>${body}<button class="btn ghost" id="edel" style="margin-top:16px;color:#ff7a7a;border-color:#5a2a2a">Delete task</button><button class="btn ghost" data-close style="margin:8px 0 0 6px">Close</button>`,()=>render(),el=>{
+    let cat=catOf(k),nt=!!k.nt;
+    const on=(sel2,f)=>{const e=el.querySelector(sel2);if(e)e.onclick=f};
+    const paint=()=>{el.querySelectorAll('[data-ec]').forEach(b=>b.classList.toggle('on',b.dataset.ec===cat));const b=el.querySelector('#ent');if(b){b.textContent=nt?'✓ No timer':'⏱ With timer';b.classList.toggle('on',nt)}};
+    el.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>{cat=b.dataset.ec;paint()});
+    paint();
+    on('#ent',()=>{nt=!nt;paint()});
+    on('#esv',()=>{const v=el.querySelector('#et').value.trim();if(v)k.title=v;k.min=Math.min(240,Math.max(1,+el.querySelector('#em').value||k.min));k.cat=cat;k.nt=nt;save();toast('Saved');el._close()});
+    on('#mtm',()=>{moveTask(id,addDays(today(),1));el._close()});
+    on('#mto',()=>{moveTask(id,today());el._close()});
+    on('#mgo',()=>{const v=el.querySelector('#md').value;if(!v||v<today()){toast('Pick today or a future date');return}moveTask(id,v);el._close()});
+    on('#edel',()=>{deleteTask(id);toast('Deleted');el._close()});
   },true);
 }
-async function openAppPicker(){
-  if(!NN){toast('App blocking works in the Android app');return}
-  toast('Loading your apps…');
-  let apps=[];try{apps=(await NN.getApps()).apps||[]}catch(e){toast('Could not read the app list');return}
-  const chosen=new Set(S.shieldApps.map(a=>a.pkg));
-  const SOCIAL=['com.instagram.android','com.google.android.youtube','com.facebook.katana','com.facebook.orca','com.whatsapp','com.twitter.android','com.zhiliaoapp.musically','com.snapchat.android','com.reddit.frontpage','com.netflix.mediaclient','org.telegram.messenger','com.pinterest','com.linkedin.android','in.mohalla.sharechat','com.mxtech.videoplayer.ad'];
-  modal(`<h3>BLOCK DURING FOCUS</h3><p>Tick the apps to block while a focus timer runs.</p>
-   <input id="aq" placeholder="Search apps"><div class="row" style="margin:8px 0;flex-wrap:wrap"><button class="pill" id="aS">Pick social &amp; video apps</button><button class="pill" id="aN">Clear</button></div>
-   <div id="alist" style="max-height:44vh;overflow:auto;text-align:left;margin:6px 0"></div>
-   <button class="btn solid" id="aOk">Save (<span id="ac">0</span>)</button>`,()=>render(),el=>{
-    const list=el.querySelector('#alist');
-    const draw=q=>{
-      q=(q||'').toLowerCase();
-      list.innerHTML=apps.filter(a=>!q||a.label.toLowerCase().includes(q)).map(a=>`<label class="arow"><input type="checkbox" data-p="${esc(a.pkg)}" ${chosen.has(a.pkg)?'checked':''}><span class="ai">${esc((a.label[0]||'?').toUpperCase())}</span><span>${esc(a.label)}</span></label>`).join('')||'<div class="empty">No apps found</div>';
-      list.querySelectorAll('input').forEach(i=>i.onchange=()=>{i.checked?chosen.add(i.dataset.p):chosen.delete(i.dataset.p);cnt()});
-      cnt();
-    };
-    const cnt=()=>{el.querySelector('#ac').textContent=chosen.size};
-    draw('');
-    el.querySelector('#aq').oninput=e=>draw(e.target.value);
-    el.querySelector('#aS').onclick=()=>{apps.forEach(a=>{if(SOCIAL.some(s=>a.pkg===s||a.pkg.startsWith(s+'.')))chosen.add(a.pkg)});draw(el.querySelector('#aq').value)};
-    el.querySelector('#aN').onclick=()=>{chosen.clear();draw(el.querySelector('#aq').value)};
-    el.querySelector('#aOk').onclick=()=>{S.shieldApps=apps.filter(a=>chosen.has(a.pkg)).map(a=>({pkg:a.pkg,label:a.label}));if(S.shieldApps.length&&!S.settings.shield)S.settings.shield=true;save();shieldSync();el._close()};
+
+/* ============ BREAK QUICK-WINS ============ */
+const breakTasks=()=>S.tasks.filter(k=>k.date===today()&&!k.done&&catOf(k)!=='office');
+function breakListHTML(){
+  const L=breakTasks();if(!L.length)return '';
+  return `<div class="mini" style="margin:6px 0">Quick wins for your break:</div><div style="text-align:left;margin-bottom:12px">${L.map(k=>`<div class="arow"><button class="chk" data-bk="${k.id}">✓</button><span>${(CAT[catOf(k)]||CAT.office).e} ${esc(k.title)} <span class="mini">${k.nt?'':k.min+'m'}</span></span></div>`).join('')}</div>`;
+}
+function bindBreakList(root){
+  root.querySelectorAll('[data-bk]').forEach(b=>b.onclick=()=>{const row=b.closest('.arow');completeTask(b.dataset.bk);if(row)row.remove()});
+}
+function breakModal(){
+  modal(`<div class="big">☕</div><h3>BREAK TIME</h3><p>Stretch, water, look far away.</p>${breakListHTML()}<button class="btn solid" data-close id="bk">Start ${S.settings.brk}-min break</button> <button class="btn ghost" data-close>Skip</button>`,()=>render(),el=>{
+    el.querySelector('#bk').addEventListener('click',()=>startTimer('break',S.settings.brk));bindBreakList(el)});
+}
+
+/* ============ DAILY CHECKLISTS (morning / evening) ============ */
+function routineHTML(day){
+  const t=today(),lg=S.rlog[day]||{},can=day===t;
+  return ROUT.map(([key,e,n])=>{
+    const L=S.routines[key]||[],dn=L.filter(i=>lg[i.id]).length;
+    return `<div class="card"><div class="row" style="justify-content:space-between"><b>${e} ${n}</b><span class="mini">${L.length?dn+'/'+L.length:''}</span></div>
+     ${L.length?L.map(i=>`<label class="arow ${lg[i.id]?'dn':''}"><input type="checkbox" data-r="${key}" data-i="${i.id}" ${lg[i.id]?'checked':''} ${can?'':'disabled'}><span>${esc(i.t)}</span></label>`).join(''):'<div class="mini" style="padding:8px 2px">Nothing here yet — tap Edit below.</div>'}</div>`}).join('')
+   +`<div class="row" style="justify-content:center;margin-top:4px"><button class="btn ghost" id="redit">✎ Edit checklists</button></div>
+     <div class="mini" style="text-align:center;margin-top:8px">Repeats every day · optional · never affects your streak</div>`;
+}
+function toggleRoutine(key,id,on){
+  const t=today(),lg=S.rlog[t]=S.rlog[t]||{};
+  if(on)lg[id]=1;else delete lg[id];
+  save();
+  const L=S.routines[key]||[];
+  if(on&&L.length&&L.every(i=>lg[i.id])){say((key==='morning'?'Morning':'Evening')+' routine done! 🌟','excited',3500);confetti(18);beep([659,784])}
+  render();
+}
+function openRoutineEdit(){
+  const lines=k=>(S.routines[k]||[]).map(i=>esc(i.t)).join('\n');
+  modal(`<h3>DAILY CHECKLISTS</h3><p>One item per line. They appear on every day automatically. Remove a line to delete it.</p>
+   <div class="mini" style="text-align:left">🌅 Morning</div><textarea id="rm" rows="5" placeholder="Drink water&#10;Stretch&#10;Plan the day">${lines('morning')}</textarea>
+   <div class="mini" style="text-align:left;margin-top:10px">🌙 Evening</div><textarea id="re" rows="5" placeholder="Tidy desk&#10;Journal&#10;Pack bag">${lines('evening')}</textarea>
+   <div class="row" style="justify-content:center;margin-top:14px"><button class="btn solid" id="rsv">Save</button><button class="btn ghost" data-close>Cancel</button></div>`,()=>render(),el=>{
+    el.querySelector('#rsv').onclick=()=>{
+      const parse=(txt,old)=>txt.split('\n').map(x=>x.trim()).filter(Boolean).slice(0,30).map(t=>{const m=old.find(o=>o.t===t);return {id:m?m.id:uid(),t}});
+      S.routines.morning=parse(el.querySelector('#rm').value,S.routines.morning||[]);
+      S.routines.evening=parse(el.querySelector('#re').value,S.routines.evening||[]);
+      save();toast('Checklists saved ✅');el._close()};
   },true);
 }
 
@@ -582,19 +654,18 @@ function startTimer(kind,min,taskId){
   S.timer={kind,total:min*60,endAt:Date.now()+min*60000,taskId:taskId||null,paused:false,remain:min*60};save();
   beep([440,660],.08);
   if(kind==='focus')say(rnd(MSG.focus),'focus',min*60000);else say('Break time! Stretch a little.','happy',4000);
-  shieldSync();render();
+  render();
 }
 function remain(){const t=S.timer;if(!t)return 0;return t.paused?t.remain:Math.max(0,Math.ceil((t.endAt-Date.now())/1000))}
-function finishTimer(){
-  const t=S.timer;if(!t)return;S.timer=null;save();tmpMood=null;
-  shieldSync();
+function finishTimer(early){
+  const t=S.timer;if(!t)return;
+  const rem=early?remain():0,elapsed=Math.max(1,Math.round((t.total-rem)/60));
+  S.timer=null;save();tmpMood=null;
   if(t.kind==='focus'){
-    S.pomos++;
-    if(t.taskId){completeTask(t.taskId)}else{const c=2+Math.floor(t.total/300);S.coins+=c;S.xp+=Math.round(t.total/60);S.focusMin+=Math.round(t.total/60);bumpStreak();save();head();toast(`Focus done +${c}🪙`);confetti(20);say('You did it! Deep breath.','excited',4000)}
-    shieldReport();
-    fgAlert('Focus complete 🎉','Take a break — you earned it.','timer');
-    modal(`<div class="big">☕</div><h3>BREAK TIME</h3><p>Stretch, water, look far away.</p><button class="btn solid" data-close id="bk">Start ${S.settings.brk}-min break</button> <button class="btn ghost" data-close>Skip</button>`,()=>render(),el=>{
-      el.querySelector('#bk').addEventListener('click',()=>startTimer('break',S.settings.brk))});
+    if(!early)S.pomos++;
+    if(t.taskId){completeTask(t.taskId)}else{const c=2+Math.floor(elapsed/5);S.coins+=c;S.xp+=elapsed;S.focusMin+=elapsed;bumpStreak();save();head();toast(`Focus done +${c}🪙`);confetti(20);say('You did it! Deep breath.','excited',4000)}
+    if(!early)fgAlert('Focus complete 🎉','Take a break — you earned it.','timer');
+    breakModal();
   }else{
     fgAlert('Break over','Ready for the next one?','timer');beep([523,659]);toast('Break over — ready?');render();
   }
@@ -679,7 +750,7 @@ const ORBS={
   for(let i=5;i>=0;i--){const r=R*(1+i*.2),g=x.createRadialGradient(cx,cy,r*.2,cx,cy,r);g.addColorStop(0,rgba(P[i%3],.22-.025*i));g.addColorStop(1,rgba(P[(i+1)%3],0));x.fillStyle=g;x.beginPath();x.arc(cx,cy,r,0,TAU);x.fill()}
   const g=x.createRadialGradient(cx-R*.2,cy-R*.25,0,cx,cy,R);g.addColorStop(0,rgba(P[0],.95));g.addColorStop(1,rgba(P[1],.55));x.fillStyle=g;x.beginPath();x.arc(cx,cy,R,0,TAU);x.fill();
   x.strokeStyle='rgba(255,255,255,.35)';x.lineWidth=1.5;x.beginPath();x.arc(cx,cy,R*1.12,0,TAU);x.stroke();
-  x.fillStyle='rgba(255,255,255,.7)';x.font=`600 ${Math.round(W*.05)}px system-ui`;x.textAlign='center';x.fillText(ph<.5?'breathe in':'breathe out',cx,H*.9);
+  x.shadowColor='rgba(0,0,0,.85)';x.shadowBlur=8;x.fillStyle='#fff';x.font=`600 ${Math.round(W*.05)}px system-ui`;x.textAlign='center';x.fillText(ph<.5?'breathe in':'breathe out',cx,H*.93);x.shadowBlur=0;
  }
 };
 let orbTok=0;
@@ -723,56 +794,58 @@ function head(){
 }
 function viewToday(){
   const t=today(),isPast=sel<t,isFuture=sel>t;
+  const cf=window._cf||'all',cat=window._cat||'office',nt0=!!window._nt;
   const list=S.tasks.filter(k=>k.date===sel);
-  const open=list.filter(k=>!k.done),done=list.filter(k=>k.done);
-  const mins=open.reduce((a,b)=>a+b.min,0);
+  const show=list.filter(k=>cf==='all'||catOf(k)===cf);
+  const open=show.filter(k=>!k.done),done=show.filter(k=>k.done);
+  const mins=list.filter(k=>!k.done).reduce((a,b)=>a+b.min,0);
   const lv=level(),pc=Math.min(100,100*(S.xp-lvlBase(lv))/(lvlBase(lv+1)-lvlBase(lv)));
   const cnt={};S.tasks.forEach(k=>{if(!k.done)cnt[k.date]=(cnt[k.date]||0)+1});
   const start=isPast?sel:t;let days=[];for(let i=0;i<24;i++)days.push(addDays(start,i));
   if(!days.includes(sel))days.push(sel);days.sort();
   const strip=days.map(d=>{const D=parseD(d);return `<button class="day ${d===sel?'on':''} ${d===t?'today':''}" data-day="${d}"><small>${D.toLocaleDateString(undefined,{weekday:'short'})}</small><b>${D.getDate()}</b><i class="${cnt[d]?'has':''}"></i></button>`}).join('');
-  const row=k=>{const can=k.date<=t;return `<div class="task ${k.done?'done':''}">${can?`<button class="chk" data-c="${k.id}">${k.done?'✓':''}</button>`:`<span class="chk lock">🗓</span>`}
-   <div class="tt"><div>${esc(k.title)}</div><small>${k.min} min${k.at?' · ⏰ '+k.at:''}${k.carried&&!k.done?' · carried over':''}</small></div>
-   ${(k.done||!can)?'':`<button class="go" data-s="${k.id}">START</button>`}${(!k.done&&k.date>t)?`<button class="go" data-mv="${k.id}">→ TODAY</button>`:''}<button class="x" data-d="${k.id}">×</button></div>`};
+  const row=k=>{const can=k.date<=t,c=CAT[catOf(k)]||CAT.office;return `<div class="task ${k.done?'done':''}">${can?`<button class="chk" data-c="${k.id}">${k.done?'✓':''}</button>`:`<span class="chk lock">🗓</span>`}
+   <div class="tt"><div>${esc(k.title)}</div><small><span class="tag t-${catOf(k)}">${c.e} ${c.n}</span>${k.nt?'no timer':k.min+' min'}${k.at?' · ⏰ '+k.at:''}${k.carried&&!k.done?' · carried over':''}</small></div>
+   ${(k.done||!can)?'':(k.nt?`<button class="go" data-c="${k.id}">✓ DONE</button>`:`<button class="go" data-s="${k.id}">START</button>`)}${(!k.done&&k.date>t)?`<button class="go" data-mv="${k.id}">→ TODAY</button>`:''}<button class="x" data-more="${k.id}" aria-label="More">⋯</button></div>`};
+  const filters=list.length?`<div class="row" style="flex-wrap:wrap;gap:6px;margin:4px 0 2px"><button class="pill ${cf==='all'?'on':''}" data-cf="all">All ${list.filter(k=>!k.done).length}</button>${CATS.map(c=>`<button class="pill ${cf===c.id?'on':''}" data-cf="${c.id}">${c.e} ${c.n} ${list.filter(k=>!k.done&&catOf(k)===c.id).length}</button>`).join('')}</div>`:'';
   const addCard=isPast?`<div class="card empty" style="padding:14px">📜 This is a past day — view only.</div>`:`
   <div class="card"><div class="mini" style="margin:0 0 8px">Adding to <b style="color:var(--txt)">${esc(dayLabel(sel))}</b></div>
+   <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px">${CATS.map(c=>`<button class="pill ${cat===c.id?'on':''}" data-cat="${c.id}">${c.e} ${c.n}</button>`).join('')}</div>
    <input id="ti" placeholder="What needs doing?  (e.g. Report 40, Email, Gym)" autocomplete="off">
-   <div class="row" style="margin-top:8px;flex-wrap:wrap">
-    ${[15,25,45,60].map(m=>`<button class="pill ${(window._m||S.settings.def)===m?'on':''}" data-m="${m}">${m}m</button>`).join('')}
-    <input type="time" id="ta" style="width:auto;flex:1;min-width:110px;padding:7px 9px" title="Reminder time (optional)">
-    <button class="btn solid" id="add" style="padding:9px 14px">+ ADD</button></div>
-   <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:6px">${TEMPLATES.map(x=>`<button class="pill" data-tpl="${x}">+ ${x}</button>`).join('')}</div>
-   <div class="mini" style="margin-top:8px">Tip: separate tasks with commas to add many at once. End with a number to set minutes. Pick any day above (or 📅) to plan ahead.</div></div>`;
+   <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:6px">
+    ${[5,10,15,25,45,60].map(m=>`<button class="pill ${(window._m||S.settings.def)===m?'on':''}" data-m="${m}">${m}m</button>`).join('')}
+    <button class="pill ${nt0?'on':''}" id="ntb">${nt0?'✓ No timer':'⏱ With timer'}</button></div>
+   <div class="row" style="margin-top:8px"><input type="time" id="ta" style="flex:1;min-width:110px;padding:9px" title="Reminder time (optional)"><button class="btn solid" id="add" style="padding:10px 16px">+ ADD</button></div>
+   <div class="row" id="tpls" style="margin-top:10px;flex-wrap:wrap;gap:6px">${TPL[cat].map(x=>`<button class="pill" data-tpl="${esc(x)}">+ ${esc(x)}</button>`).join('')}</div>
+   <div class="mini" style="margin-top:8px">Tip: separate tasks with commas to add many at once. End with a number to set minutes. Home and Fun tasks pop up as quick wins during your breaks.</div></div>`;
+  const pool=S.tasks.filter(k=>k.date===t&&!k.done&&!k.nt);
   return banner()+petHTML()+`
   <div class="card"><div class="row" style="justify-content:space-between"><span class="mini">LEVEL ${lv}</span><span class="mini">${S.doneCount}/3 daily quest ${S.questDone?'✅':'🎟️'}</span></div>
    <div class="bar" style="margin-top:8px"><i style="width:${pc}%"></i></div></div>
   <div class="dayhead"><div><b>${esc(dayLabel(sel))}</b><small>${parseD(sel).toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</small></div><button class="btn" id="calb" style="padding:9px 13px">📅 Calendar</button></div>
   <div class="strip" id="strip">${strip}</div>
   ${addCard}
-  <div class="row" style="justify-content:space-between"><h2 style="margin:12px 4px 4px">${isFuture?'Planned':'To do'} · ${mins} min</h2>${(sel===t&&open.length)?'<button class="btn" id="lazy" style="padding:7px 12px;font-size:12px">😴 JUST START ONE</button>':''}</div>
-  ${open.length?open.map(row).join(''):`<div class="empty">${list.length?'All done. Legend. 🎉':(isPast?'Nothing was planned that day.':'Nothing here yet. Add a 25-minute task above.')}</div>`}
+  <div class="row" style="justify-content:space-between"><h2 style="margin:12px 4px 4px">${isFuture?'Planned':'To do'} · ${mins} min</h2>${(sel===t&&pool.length)?'<button class="btn" id="lazy" style="padding:7px 12px;font-size:12px">😴 JUST START ONE</button>':''}</div>
+  ${filters}
+  ${open.length?open.map(row).join(''):`<div class="empty">${list.length?(done.length||cf==='all'?'All done. Legend. 🎉':'Nothing open in this filter.'):(isPast?'Nothing was planned that day.':'Nothing here yet. Add a task above.')}</div>`}
   ${done.length?'<h2>Done</h2>'+done.map(row).join(''):''}
+  <h2>Daily checklist</h2>${routineHTML(sel)}
   <div class="credit">made by <b>Unmesh Khare</b></div>`;
 }
 function viewFocus(){
-  const t=S.timer,open=S.tasks.filter(k=>k.date===today()&&!k.done);
+  const t=S.timer,open=S.tasks.filter(k=>k.date===today()&&!k.done&&!k.nt);
   const fs=window._fsel||'',r=remain(),C=2*Math.PI*122;
   const k=open.find(x=>x.id===fs);
   let ctrl;
-  if(t){ctrl=`<div class="row" style="justify-content:center"><button class="btn" id="pz">${t.paused?'RESUME':'PAUSE'}</button><button class="btn ghost" id="stp">STOP</button></div>`}
+  if(t){ctrl=`<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" id="pz">${t.paused?'RESUME':'PAUSE'}</button>${t.kind==='focus'?`<button class="btn solid" id="fin">✓ ${t.taskId?'FINISHED THE TASK':'FINISH NOW'}</button><button class="btn ghost" id="stp">STOP</button>`:`<button class="btn ghost" id="eb">END BREAK</button>`}</div>`}
   else{
-    ctrl=`<select id="fsel"><option value="">Free focus (no task)</option>${open.map(x=>`<option value="${x.id}" ${x.id===fs?'selected':''}>${esc(x.title)} · ${x.min}m</option>`).join('')}</select>
-    ${k?'':`<div class="row" style="justify-content:center;margin-top:10px">${[15,25,45,50].map(m=>`<button class="pill ${(window._fm||25)===m?'on':''}" data-fm="${m}">${m}m</button>`).join('')}</div>`}
+    ctrl=`<select id="fsel"><option value="">Free focus (no task)</option>${open.map(x=>`<option value="${x.id}" ${x.id===fs?'selected':''}>${(CAT[catOf(x)]||CAT.office).e} ${esc(x.title)} · ${x.min}m</option>`).join('')}</select>
+    ${k?'':`<div class="row" style="justify-content:center;margin-top:10px;flex-wrap:wrap">${[10,15,25,45,50].map(m=>`<button class="pill ${(window._fm||25)===m?'on':''}" data-fm="${m}">${m}m</button>`).join('')}</div>`}
     <div class="row" style="justify-content:center;margin-top:14px"><button class="btn solid" id="st" style="padding:13px 34px">START FOCUS</button><button class="btn ghost" id="sb">${S.settings.brk}m BREAK</button></div>`;
   }
   const label=t?(t.kind==='focus'?(t.taskId?'FOCUS · task':'FOCUS'):'BREAK'):'READY';
   const shown=t?r:(k?k.min:(window._fm||25))*60;
-  const names=S.shieldApps.slice(0,3).map(a=>esc(a.label)).join(', ')+(S.shieldApps.length>3?` +${S.shieldApps.length-3}`:'');
-  const shield=NATIVE?`<div class="card"><div class="row" style="justify-content:space-between"><b>🛡️ Focus Shield</b><button class="pill ${S.settings.shield?'on':''}" id="shT">${S.settings.shield?'ON':'OFF'}</button></div>
-   <div class="mini" style="margin:6px 0 10px">Blocks distracting apps while a focus timer runs. ${S.shieldApps.length?'Blocking: '+names:'No apps chosen yet.'}</div>
-   <div class="row" style="flex-wrap:wrap"><button class="btn" id="shA">Choose apps (${S.shieldApps.length})</button><button class="btn ghost" id="shP">Permission</button></div>
-   <div class="mini" id="shS" style="margin-top:10px">Checking permission…</div></div>`
-   :`<div class="card mini">🛡️ Focus Shield (app blocking) works in the Android app.</div>`;
+  const brk=(t&&t.kind==='break')?`<div class="card"><b>☕ Break quick wins</b>${breakListHTML()||'<div class="mini" style="margin-top:6px">No Home or Fun tasks left today — just enjoy the break 🌿</div>'}</div>`:'';
   return `<div class="card" style="text-align:center">
    <div class="orbwrap"><canvas id="orb"></canvas>
    <svg viewBox="0 0 260 260"><defs><linearGradient id="rg"><stop offset="0" stop-color="#6ff3ff"/><stop offset="1" stop-color="#8a7bff"/></linearGradient></defs><circle cx="130" cy="130" r="122" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="5"/>
@@ -781,8 +854,8 @@ function viewFocus(){
    <div class="opts">${ORB_STYLES.map(o=>`<button class="pill ${S.settings.orb===o[0]?'on':''}" data-os="${o[0]}">${o[1]}</button>`).join('')}</div>
    <div class="opts">${Object.keys(PALS).map(p=>`<button class="pdot ${S.settings.pal===p?'on':''}" data-op="${p}" aria-label="${p}" style="background:linear-gradient(135deg,${PALS[p][0]},${PALS[p][1]},${PALS[p][2]})"></button>`).join('')}</div>
    <div style="margin-top:12px">${ctrl}</div></div>
-   ${shield}
-   <div class="card mini">Finish a focus session on a task and it's auto-completed with rewards. The timer keeps running if you close the app, and you'll get a notification when it ends.</div>`;
+   ${brk}
+   <div class="card mini">Finish a focus session on a task and it's auto-completed with rewards. Done early? Tap FINISH to complete it right away. Tasks marked "no timer" are ticked off from the Plan tab.</div>`;
 }
 function viewLoot(){
   const own=ITEMS.filter(i=>S.items[i.id]).length;
@@ -808,7 +881,6 @@ function viewMe(){
    <div class="stat"><span>Tasks completed</span><span>${S.totalDone}</span></div>
    <div class="stat"><span>Focused minutes</span><span>${S.focusMin}</span></div>
    <div class="stat"><span>Pomodoros</span><span>${S.pomos}</span></div>
-   <div class="stat"><span>Distractions blocked</span><span>🛡️ ${S.blocked}</span></div>
    <div class="stat"><span>Streak freezes</span><span>🧊 ${S.freezes}</span></div></div>
   <h2>Companion</h2><div class="card"><div class="charpick">${Object.keys(CHARS).map(c=>`<button class="${S.settings.char===c?'on':''}" data-ch="${c}">${pipSVG(c,'happy')}<span>${CHARS[c].n}</span></button>`).join('')}</div>
    <div class="mini" style="text-align:center;margin-top:6px">Tap to switch — it changes on the widget too.</div></div>
@@ -864,33 +936,38 @@ function bind(){
     q('[data-day]',b=>b.onclick=()=>{sel=b.dataset.day;render()});
     $('#calb').onclick=openCalendar;
     const st=$('#strip'),on=st&&st.querySelector('.on');if(on)st.scrollLeft=on.offsetLeft-st.clientWidth/2+on.clientWidth/2;
+    q('[data-cf]',b=>b.onclick=()=>{window._cf=b.dataset.cf;render()});
     q('[data-c]',b=>b.onclick=()=>{const k=S.tasks.find(x=>x.id===b.dataset.c);if(k&&!k.done)completeTask(k.id)});
-    q('[data-d]',b=>b.onclick=()=>{S.tasks=S.tasks.filter(x=>x.id!==b.dataset.d);if(S.timer&&S.timer.taskId===b.dataset.d){S.timer=null;shieldSync()}save();render()});
-    q('[data-mv]',b=>b.onclick=()=>{const k=S.tasks.find(x=>x.id===b.dataset.mv);if(k){k.date=today();k.at='';k.notified=false;save();toast('Moved to today');sel=today();render()}});
+    q('[data-more]',b=>b.onclick=()=>openTaskSheet(b.dataset.more));
+    q('[data-mv]',b=>b.onclick=()=>{if(moveTask(b.dataset.mv,today())){sel=today();render()}});
     q('[data-s]',b=>b.onclick=()=>{const k=S.tasks.find(x=>x.id===b.dataset.s);if(!k)return;if(S.timer&&!confirm('Replace the running timer?'))return;startTimer('focus',k.min,k.id);tab='focus';render()});
     q('[data-m]',b=>b.onclick=()=>{window._m=+b.dataset.m;q('[data-m]',x=>x.classList.toggle('on',x===b))});
-    q('[data-tpl]',b=>b.onclick=()=>{addTasks(b.dataset.tpl,window._m,'',sel);render()});
+    const bindTpl=()=>q('[data-tpl]',b=>b.onclick=()=>{addTasks(b.dataset.tpl,window._m,'',sel,window._cat||'office',!!window._nt);render()});
+    bindTpl();
+    q('[data-cat]',b=>b.onclick=()=>{window._cat=b.dataset.cat;q('[data-cat]',x=>x.classList.toggle('on',x===b));const tp=$('#tpls');if(tp){tp.innerHTML=TPL[window._cat].map(x=>`<button class="pill" data-tpl="${esc(x)}">+ ${esc(x)}</button>`).join('');bindTpl()}});
+    const nb=$('#ntb');if(nb)nb.onclick=()=>{window._nt=!window._nt;nb.classList.toggle('on',window._nt);nb.textContent=window._nt?'✓ No timer':'⏱ With timer'};
     const add=$('#add');
     if(add){
-      const go=()=>{const i=$('#ti');if(!i.value.trim()){i.focus();return}addTasks(i.value,window._m,$('#ta').value,sel);render()};
+      const go=()=>{const i=$('#ti');if(!i.value.trim()){i.focus();return}addTasks(i.value,window._m,$('#ta').value,sel,window._cat||'office',!!window._nt);render()};
       add.onclick=go;$('#ti').onkeydown=e=>{if(e.key==='Enter')go()};
     }
-    const lz=$('#lazy');if(lz)lz.onclick=()=>{const o=S.tasks.filter(k=>k.date===today()&&!k.done);const k=rnd(o);say(`Let's do "${k.title}"!`,'excited',2500);startTimer('focus',k.min,k.id);tab='focus';render()};
+    const lz=$('#lazy');if(lz)lz.onclick=()=>{const o=S.tasks.filter(k=>k.date===today()&&!k.done&&!k.nt);if(!o.length)return;const k=rnd(o);say(`Let's do "${k.title}"!`,'excited',2500);startTimer('focus',k.min,k.id);tab='focus';render()};
+    q('[data-r]',b=>b.onchange=()=>toggleRoutine(b.dataset.r,b.dataset.i,b.checked));
+    const re=$('#redit');if(re)re.onclick=openRoutineEdit;
   }
   if(tab==='focus'){
-    startOrb();shieldStatus();
+    startOrb();
     q('[data-os]',b=>b.onclick=()=>{S.settings.orb=b.dataset.os;save();render()});
     q('[data-op]',b=>b.onclick=()=>{S.settings.pal=b.dataset.op;save();render()});
     const f=$('#fsel');if(f)f.onchange=()=>{window._fsel=f.value;render()};
     q('[data-fm]',b=>b.onclick=()=>{window._fm=+b.dataset.fm;render()});
     const st=$('#st');if(st)st.onclick=()=>{const k=S.tasks.find(x=>x.id===window._fsel);startTimer('focus',k?k.min:(window._fm||25),k?k.id:null)};
     const sb=$('#sb');if(sb)sb.onclick=()=>startTimer('break',S.settings.brk);
-    const pz=$('#pz');if(pz)pz.onclick=()=>{const t=S.timer;if(t.paused){t.endAt=Date.now()+t.remain*1000;t.paused=false}else{t.remain=remain();t.paused=true}save();shieldSync();render()};
-    const sp=$('#stp');if(sp)sp.onclick=()=>{if(confirm('Stop this session? No reward.')){S.timer=null;save();shieldSync();shieldReport();render()}};
-    const shT=$('#shT');if(shT){
-      shT.onclick=()=>{S.settings.shield=!S.settings.shield;save();shieldSync();render()};
-      $('#shA').onclick=openAppPicker;$('#shP').onclick=openShieldHelp;
-    }
+    const pz=$('#pz');if(pz)pz.onclick=()=>{const t=S.timer;if(t.paused){t.endAt=Date.now()+t.remain*1000;t.paused=false}else{t.remain=remain();t.paused=true}save();render()};
+    const fin=$('#fin');if(fin)fin.onclick=()=>finishTimer(true);
+    const eb=$('#eb');if(eb)eb.onclick=()=>{S.timer=null;save();render()};
+    const sp=$('#stp');if(sp)sp.onclick=()=>{if(confirm('Stop without finishing? No reward. (Tap FINISH to complete it early instead.)')){S.timer=null;save();render()}};
+    bindBreakList(document);
   }
   if(tab==='loot'){$('#sc').onclick=openScratch;$('#egg').onclick=openEgg}
   if(tab==='me'){
@@ -919,7 +996,7 @@ setInterval(()=>{
   const d=new Date(),n=d.getHours()*60+d.getMinutes();
   S.tasks.forEach(k=>{if(k.at&&!k.done&&!k.notified&&k.date===today()&&n>=toMin(k.at)){
     k.notified=true;save();
-    if(n-toMin(k.at)<120)fgAlert('⏰ '+k.title,`${k.min} min — want to start?`,'t'+k.id)}});
+    if(n-toMin(k.at)<120)fgAlert('⏰ '+k.title,k.nt?'Time to do it ✅':`${k.min} min — want to start?`,'t'+k.id)}});
   const dm=S.settings.daily;
   if(dm&&S.lastNudge!==today()&&n>=toMin(dm)&&n<toMin(dm)+180){
     S.lastNudge=today();save();
@@ -936,7 +1013,7 @@ petMsg=msgFor(baseMood());
 render();
 if(NATIVE){
   setTimeout(()=>{LN&&LN.checkPermissions().then(p=>{if(String(p.display).startsWith('prompt'))LN.requestPermissions().then(syncNative)}).catch(()=>{})},1500);
-  shieldSync();queueSync();
+  queueSync();
 }
 setTimeout(()=>{if(Date.now()-(S.lastCheck||0)>3*3600e3)checkUpdate(false)},5000);
 document.addEventListener('visibilitychange',()=>{
