@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#080b14">
-<meta name="nudge-ui" content="5">
+<meta name="nudge-ui" content="6">
 <title>Nudge</title>
 <style>
 :root{--sat:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));--sab:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px));--bg:#080b14;--card:rgba(255,255,255,.04);--line:rgba(255,255,255,.09);--txt:#e8ecf8;--dim:#7f89a8;--c1:#6ff3ff;--c2:#8a7bff;--pink:#ff7ad9;--gold:#ffd166;--ok:#5dffb0}
@@ -176,7 +176,7 @@ ol.steps li{margin:6px 0}
 
 <script>
 'use strict';
-const UI_V=5;
+const UI_V=6;
 const UPDATE_URL='https://raw.githubusercontent.com/unmeshkhare/nudge/main/www/app.html';
 const CHARS={
   pip:{n:'Pip',a:'#9ff6ff',b:'#7a63ff',acc:'#6ff3ff',cheek:'#ff7ad9',glow:'rgba(138,123,255,.45)',kind:'antenna'},
@@ -297,8 +297,8 @@ const ORB_STYLES=[['orb','Glow'],['lava','Lava'],['morph','Morph'],['nebula','Ne
 /* ============ STATE ============ */
 const def=()=>({tasks:[],coins:20,xp:0,streak:0,best:0,lastActive:null,freezes:0,items:{},cards:1,
  dayDate:null,doneCount:0,questDone:false,perfectDone:false,pomos:0,timer:null,lastBonus:null,totalDone:0,
- msDone:{},lastNudge:null,focusMin:0,lastCheck:0,routines:{morning:[],evening:[]},rlog:{},
- settings:{def:25,brk:5,daily:'09:00',sound:true,char:'pip',orb:'orb',pal:'aurora',updateUrl:''}});
+ msDone:{},lastNudge:null,focusMin:0,lastCheck:0,sprints:0,routines:{morning:[],evening:[]},rlog:{},
+ settings:{def:25,brk:5,daily:'09:00',sound:true,char:'pip',orb:'orb',pal:'aurora',snd:'off',vol:60,updateUrl:''}});
 let S;
 try{const raw=JSON.parse(localStorage.getItem(KEY)||'{}');S=Object.assign(def(),raw);S.settings=Object.assign(def().settings,raw.settings||{});delete S.hat}catch(e){S=def()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}queueSync()}
@@ -396,7 +396,7 @@ async function syncNative(){
     S.tasks.forEach(k=>{if(!k.done&&k.at&&list.length<120){const[h,m]=k.at.split(':').map(Number);const d=parseD(k.date);d.setHours(h,m,0,0);
       if(d.getTime()>now)list.push({id:hashId(k.id),title:'⏰ '+k.title,body:k.nt?'Time to do it ✅':k.min+' min — want to start?',schedule:{at:d,allowWhileIdle:true},smallIcon:'ic_stat_nudge'})}});
     const t=S.timer;
-    if(t&&!t.paused&&t.endAt>now)list.push({id:2,title:t.kind==='focus'?'Focus complete 🎉':'Break over',body:t.kind==='focus'?'Take a break — you earned it.':'Ready for the next one?',schedule:{at:new Date(t.endAt),allowWhileIdle:true},smallIcon:'ic_stat_nudge'});
+    if(t&&!t.paused&&t.endAt>now)list.push({id:2,title:t.kind==='focus'?'Focus complete 🎉':(t.kind==='sprint'?'Sprint time is up ⏰':'Break over'),body:t.kind==='focus'?'Take a break — you earned it.':(t.kind==='sprint'?'Did you beat the clock?':'Ready for the next one?'),schedule:{at:new Date(t.endAt),allowWhileIdle:true},smallIcon:'ic_stat_nudge'});
     const dm=S.settings.daily;
     if(dm){const[h,m]=dm.split(':').map(Number);list.push({id:1,title:'Hi from '+charName()+' 👋',body:rnd(MSG.idle),schedule:{on:{hour:h,minute:m},allowWhileIdle:true},smallIcon:'ic_stat_nudge'})}
     if(list.length)await LN.schedule({notifications:list});
@@ -425,6 +425,7 @@ let petMsg='',tmpMood=null,tmpUntil=0;
 function baseMood(){
   const t=today(),h=new Date().getHours();
   if(S.timer&&S.timer.kind==='focus')return 'focus';
+  if(S.timer&&S.timer.kind==='sprint')return 'excited';
   const list=S.tasks.filter(k=>k.date===t);
   if(list.length&&list.every(k=>k.done))return 'love';
   if(h>=22||h<5)return 'sleepy';
@@ -542,6 +543,7 @@ function completeTask(id){
   const lv0=level();S.coins+=coins;S.xp+=xp;S.doneCount++;S.totalDone++;S.focusMin+=k.min;
   bumpStreak();
   const extra=[];
+  if(k.sup){const b=5+Math.floor(Math.random()*6);S.coins+=b;extra.push('🎲 Surprise bonus +'+b+'🪙');if(Math.random()<.25){S.cards++;extra.push('🎟️ +1 scratch card!')}k.sup=false}
   if(S.doneCount>=3&&!S.questDone){S.questDone=true;S.cards++;extra.push('🎟️ Daily quest done: scratch card!')}
   const todays=S.tasks.filter(x=>x.date===today());
   if(todays.length>=2&&todays.every(x=>x.done)&&!S.perfectDone){S.perfectDone=true;S.coins+=20;S.cards++;extra.push('💯 Perfect day: +20🪙 +🎟️')}
@@ -660,12 +662,17 @@ function remain(){const t=S.timer;if(!t)return 0;return t.paused?t.remain:Math.m
 function finishTimer(early){
   const t=S.timer;if(!t)return;
   const rem=early?remain():0,elapsed=Math.max(1,Math.round((t.total-rem)/60));
-  S.timer=null;save();tmpMood=null;
+  S.timer=null;save();tmpMood=null;ambSync();
   if(t.kind==='focus'){
     if(!early)S.pomos++;
     if(t.taskId){completeTask(t.taskId)}else{const c=2+Math.floor(elapsed/5);S.coins+=c;S.xp+=elapsed;S.focusMin+=elapsed;bumpStreak();save();head();toast(`Focus done +${c}🪙`);confetti(20);say('You did it! Deep breath.','excited',4000)}
     if(!early)fgAlert('Focus complete 🎉','Take a break — you earned it.','timer');
     breakModal();
+  }else if(t.kind==='sprint'){
+    ambSync();fgAlert('Sprint over ⏰','Time is up!','timer');beep([440,330]);
+    const k=t.taskId&&S.tasks.find(x=>x.id===t.taskId&&!x.done);
+    say('So close! Want another go?','worried',3500);
+    modal(`<div class="big">⏰</div><h3>TIME'S UP</h3><p>${k?'Did you still finish “'+esc(k.title)+'”? (No bonus, but it counts.)':'Nice effort — try again!'}</p>${k?'<button class="btn solid" data-close id="spY">Yes, finished</button> <button class="btn ghost" data-close>Not yet</button>':'<button class="btn solid" data-close>OK</button>'}`,()=>render(),el=>{const y=el.querySelector('#spY');if(y)y.addEventListener('click',()=>completeTask(t.taskId))});
   }else{
     fgAlert('Break over','Ready for the next one?','timer');beep([523,659]);toast('Break over — ready?');render();
   }
@@ -677,6 +684,132 @@ function timerUI(){
   const r=remain(),t=S.timer;const el=$('#tmr');if(!el||!t)return;
   el.textContent=pad(Math.floor(r/60))+':'+pad(r%60);
   const c=$('#ringp');if(c){const C=2*Math.PI*122;c.style.strokeDashoffset=C*(1-r/t.total)}
+}
+
+/* ============ FOCUS SOUNDS (generated, nothing downloaded) ============ */
+const SND=[['off','🔇','Off'],['rain','🌧','Rain'],['wind','🍃','Wind'],['chimes','🔔','Chimes']];
+const AMB={ctx:null,master:null,g:null,kind:null,fns:[],prev:0};
+const ambVol=()=>(S.settings.vol==null?60:S.settings.vol)/100*.85;
+function ambCtx(){
+  if(!AMB.ctx){try{AMB.ctx=new (window.AudioContext||window.webkitAudioContext)();AMB.master=AMB.ctx.createGain();AMB.master.connect(AMB.ctx.destination)}catch(e){return null}}
+  AMB.master.gain.value=ambVol();
+  if(AMB.ctx.state==='suspended')AMB.ctx.resume().catch(()=>{});
+  return AMB.ctx;
+}
+function noiseBuf(c,brown){
+  const len=c.sampleRate*3,b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);let last=0;
+  for(let i=0;i<len;i++){const w=Math.random()*2-1;if(brown){last=(last+.02*w)/1.02;d[i]=last*3.5}else d[i]=w}
+  return b;
+}
+function ambStart(kind){
+  const c=ambCtx();if(!c)return;
+  ambStop(true);
+  AMB.kind=kind;const fns=[];
+  const g=c.createGain();g.gain.value=0;g.connect(AMB.master);g.gain.setTargetAtTime(1,c.currentTime,.5);
+  const src=buf=>{const n=c.createBufferSource();n.buffer=buf;n.loop=true;n.start();fns.push(()=>{try{n.stop()}catch(e){}});return n};
+  const osc=(f,node)=>{const o=c.createOscillator();o.frequency.value=f;o.connect(node);o.start();fns.push(()=>{try{o.stop()}catch(e){}});return o};
+  let alive=true;fns.push(()=>{alive=false});
+  if(kind==='rain'){
+    const n=src(noiseBuf(c,false)),hp=c.createBiquadFilter(),lp=c.createBiquadFilter(),ng=c.createGain();
+    hp.type='highpass';hp.frequency.value=900;lp.type='lowpass';lp.frequency.value=7000;ng.gain.value=.2;
+    n.connect(hp);hp.connect(lp);lp.connect(ng);ng.connect(g);
+    (function drop(){if(!alive)return;const o=c.createOscillator(),og=c.createGain(),t=c.currentTime;
+      o.type='sine';o.frequency.value=1300+Math.random()*2700;og.gain.setValueAtTime(.0001,t);og.gain.exponentialRampToValueAtTime(.012+Math.random()*.04,t+.004);og.gain.exponentialRampToValueAtTime(.0001,t+.06);
+      o.connect(og);og.connect(g);o.start(t);o.stop(t+.08);setTimeout(drop,40+Math.random()*170)})();
+  }else if(kind==='wind'){
+    const n=src(noiseBuf(c,true)),bp=c.createBiquadFilter(),ng=c.createGain(),lg=c.createGain(),l2g=c.createGain();
+    bp.type='bandpass';bp.frequency.value=420;bp.Q.value=.8;ng.gain.value=1.1;
+    lg.gain.value=260;osc(.07,lg);lg.connect(bp.frequency);
+    l2g.gain.value=.4;osc(.045,l2g);l2g.connect(ng.gain);
+    n.connect(bp);bp.connect(ng);ng.connect(g);
+  }else{
+    const del=c.createDelay(1),fb=c.createGain(),wet=c.createGain(),bus=c.createGain();
+    del.delayTime.value=.34;fb.gain.value=.4;wet.gain.value=.5;
+    del.connect(fb);fb.connect(del);del.connect(wet);wet.connect(g);bus.connect(g);bus.connect(del);
+    const P=[523.25,587.33,659.25,783.99,880,1046.5];
+    (function ring(){if(!alive)return;const f=P[Math.floor(Math.random()*P.length)]*(Math.random()<.2?.5:1),t=c.currentTime;
+      [[1,.1,3.6],[2.76,.03,1.4],[5.4,.012,.7]].forEach(([m,a,d])=>{const o=c.createOscillator(),og=c.createGain();
+        o.frequency.value=f*m;og.gain.setValueAtTime(.0001,t);og.gain.exponentialRampToValueAtTime(a,t+.012);og.gain.exponentialRampToValueAtTime(.0001,t+d);
+        o.connect(og);og.connect(bus);o.start(t);o.stop(t+d+.05)});
+      setTimeout(ring,1800+Math.random()*3800)})();
+  }
+  AMB.fns=fns;AMB.g=g;
+}
+function ambStop(quick){
+  if(!AMB.kind)return;
+  const c=AMB.ctx,g=AMB.g,fns=AMB.fns;AMB.kind=null;
+  try{g.gain.cancelScheduledValues(c.currentTime);g.gain.setTargetAtTime(0,c.currentTime,.12)}catch(e){}
+  setTimeout(()=>{fns.forEach(f=>{try{f()}catch(e){}});try{g.disconnect()}catch(e){}},quick?60:700);
+}
+function ambSync(){
+  const t=S.timer,k=S.settings.snd||'off';
+  const want=(t&&(t.kind==='focus'||t.kind==='sprint')&&!t.paused&&remain()>0)||Date.now()<AMB.prev;
+  if(want&&k!=='off'){if(AMB.kind!==k)ambStart(k);else if(AMB.master)AMB.master.gain.value=ambVol()}
+  else ambStop();
+}
+document.addEventListener('pointerdown',()=>{if(AMB.ctx&&AMB.ctx.state==='suspended'&&!document.hidden)AMB.ctx.resume().catch(()=>{})},{passive:true});
+
+/* ============ BEAT THE CLOCK (sprint) ============ */
+function startSprint(min,taskId){
+  if(S.timer&&!confirm('Replace the running timer?'))return;
+  S.timer={kind:'sprint',total:min*60,endAt:Date.now()+min*60000,taskId:taskId||null,paused:false,remain:min*60};save();
+  beep([660,880,1100],.07);say('Beat the clock! Go go go!','excited',min*60000);render();
+}
+function sprintWin(){
+  const t=S.timer;if(!t||t.kind!=='sprint')return;
+  const spare=Math.max(0,remain()),bonus=8+Math.ceil(spare/60)*3,mins=Math.round(t.total/60);
+  S.timer=null;tmpMood=null;
+  S.coins+=bonus;S.xp+=mins*2;S.sprints=(S.sprints||0)+1;S.pomos+=0;
+  const card=Math.random()<.4;if(card)S.cards++;
+  if(!t.taskId){bumpStreak();S.focusMin+=mins}
+  save();head();ambSync();
+  if(t.taskId)completeTask(t.taskId);
+  say('BEAT THE CLOCK! ⚡','excited',4500);
+  confetti(50,['⚡','✨','⭐','🔥']);beep([659,784,988,1319]);
+  modal(`<div class="big">⚡</div><h3>BEAT THE CLOCK!</h3><p>${spare} sec to spare<br><b style="color:var(--gold)">+${bonus} 🪙 bonus</b>${card?' · 🎟️ scratch card!':''}</p><button class="btn solid" data-close>Nice</button>`,()=>render());
+  render();
+}
+
+/* ============ SURPRISE ME ============ */
+function openSurprise(){
+  const t=today();
+  const pool=()=>S.tasks.filter(k=>k.date===t&&!k.done&&catOf(k)!=='fun');
+  if(!pool().length){toast('Add an Office or Home task first 🎲');return}
+  let rerolls=1,cur=null,busy=false;
+  modal(`<h3>🎲 SURPRISE ME</h3><div class="big" id="spE" style="margin:2px 0">🎰</div>
+   <div id="spT" style="font-size:20px;font-weight:600;min-height:56px;display:flex;align-items:center;justify-content:center;line-height:1.25"></div>
+   <div id="spM" class="mini" style="min-height:34px"></div>
+   <div class="row" style="justify-content:center;flex-wrap:wrap;margin-top:12px"><button class="btn solid" id="spGo" disabled>Do it!</button><button class="btn" id="spRe" disabled>🔄 Re-roll</button></div>
+   <button class="btn ghost" data-close style="margin-top:10px">Not now</button>`,()=>render(),el=>{
+    const T=el.querySelector('#spT'),M=el.querySelector('#spM'),E=el.querySelector('#spE'),go=el.querySelector('#spGo'),re=el.querySelector('#spRe');
+    const spin=()=>{
+      const p=pool();if(!p.length){el._close();return}
+      busy=true;go.disabled=re.disabled=true;M.textContent='';E.textContent='🎰';
+      const total=14+Math.floor(Math.random()*6);let n=0;
+      const step=()=>{
+        if(!el.isConnected)return;
+        n++;
+        if(n<total){T.textContent=rnd(p).title;beep([300+Math.random()*500],.03);setTimeout(step,55+n*13);return}
+        let c=rnd(p);if(cur&&p.length>1){let g=0;while(c.id===cur.id&&g++<20)c=rnd(p)}
+        cur=c;busy=false;
+        const cat=CAT[catOf(c)]||CAT.office;
+        E.textContent=cat.e;T.innerHTML=esc(c.title);
+        M.textContent=(c.nt?'No timer — just do it':c.min+' min')+' · finish it for a bonus 🎁';
+        confetti(12,['✨','🎲','⭐']);beep([523,659,784],.08);
+        go.disabled=false;re.disabled=rerolls<=0||p.length<2;re.textContent='🔄 Re-roll ('+rerolls+')';
+      };
+      step();
+    };
+    re.onclick=()=>{if(busy||rerolls<=0)return;rerolls--;spin()};
+    go.onclick=()=>{
+      if(busy||!cur)return;const k=S.tasks.find(x=>x.id===cur.id);if(!k)return;
+      if(!k.nt&&S.timer&&!confirm('Replace the running timer?'))return;
+      k.sup=true;save();el._close();
+      say(`Let's go: "${k.title}"!`,'excited',3000);
+      if(!k.nt){startTimer('focus',k.min,k.id);tab='focus';render()}else toast('Go! Tick it off when done 🎁');
+    };
+    spin();
+  });
 }
 
 /* ============ MEDITATION ORB ============ */
@@ -805,7 +938,7 @@ function viewToday(){
   if(!days.includes(sel))days.push(sel);days.sort();
   const strip=days.map(d=>{const D=parseD(d);return `<button class="day ${d===sel?'on':''} ${d===t?'today':''}" data-day="${d}"><small>${D.toLocaleDateString(undefined,{weekday:'short'})}</small><b>${D.getDate()}</b><i class="${cnt[d]?'has':''}"></i></button>`}).join('');
   const row=k=>{const can=k.date<=t,c=CAT[catOf(k)]||CAT.office;return `<div class="task ${k.done?'done':''}">${can?`<button class="chk" data-c="${k.id}">${k.done?'✓':''}</button>`:`<span class="chk lock">🗓</span>`}
-   <div class="tt"><div>${esc(k.title)}</div><small><span class="tag t-${catOf(k)}">${c.e} ${c.n}</span>${k.nt?'no timer':k.min+' min'}${k.at?' · ⏰ '+k.at:''}${k.carried&&!k.done?' · carried over':''}</small></div>
+   <div class="tt"><div>${esc(k.title)}</div><small><span class="tag t-${catOf(k)}">${c.e} ${c.n}</span>${k.nt?'no timer':k.min+' min'}${k.at?' · ⏰ '+k.at:''}${k.carried&&!k.done?' · carried over':''}${k.sup&&!k.done?' · 🎲 bonus':''}</small></div>
    ${(k.done||!can)?'':(k.nt?`<button class="go" data-c="${k.id}">✓ DONE</button>`:`<button class="go" data-s="${k.id}">START</button>`)}${(!k.done&&k.date>t)?`<button class="go" data-mv="${k.id}">→ TODAY</button>`:''}<button class="x" data-more="${k.id}" aria-label="More">⋯</button></div>`};
   const filters=list.length?`<div class="row" style="flex-wrap:wrap;gap:6px;margin:4px 0 2px"><button class="pill ${cf==='all'?'on':''}" data-cf="all">All ${list.filter(k=>!k.done).length}</button>${CATS.map(c=>`<button class="pill ${cf===c.id?'on':''}" data-cf="${c.id}">${c.e} ${c.n} ${list.filter(k=>!k.done&&catOf(k)===c.id).length}</button>`).join('')}</div>`:'';
   const addCard=isPast?`<div class="card empty" style="padding:14px">📜 This is a past day — view only.</div>`:`
@@ -818,14 +951,14 @@ function viewToday(){
    <div class="row" style="margin-top:8px"><input type="time" id="ta" style="flex:1;min-width:110px;padding:9px" title="Reminder time (optional)"><button class="btn solid" id="add" style="padding:10px 16px">+ ADD</button></div>
    <div class="row" id="tpls" style="margin-top:10px;flex-wrap:wrap;gap:6px">${TPL[cat].map(x=>`<button class="pill" data-tpl="${esc(x)}">+ ${esc(x)}</button>`).join('')}</div>
    <div class="mini" style="margin-top:8px">Tip: separate tasks with commas to add many at once. End with a number to set minutes. Home and Fun tasks pop up as quick wins during your breaks.</div></div>`;
-  const pool=S.tasks.filter(k=>k.date===t&&!k.done&&!k.nt);
+  const sp=S.tasks.filter(k=>k.date===t&&!k.done&&catOf(k)!=='fun');
   return banner()+petHTML()+`
   <div class="card"><div class="row" style="justify-content:space-between"><span class="mini">LEVEL ${lv}</span><span class="mini">${S.doneCount}/3 daily quest ${S.questDone?'✅':'🎟️'}</span></div>
    <div class="bar" style="margin-top:8px"><i style="width:${pc}%"></i></div></div>
   <div class="dayhead"><div><b>${esc(dayLabel(sel))}</b><small>${parseD(sel).toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</small></div><button class="btn" id="calb" style="padding:9px 13px">📅 Calendar</button></div>
   <div class="strip" id="strip">${strip}</div>
   ${addCard}
-  <div class="row" style="justify-content:space-between"><h2 style="margin:12px 4px 4px">${isFuture?'Planned':'To do'} · ${mins} min</h2>${(sel===t&&pool.length)?'<button class="btn" id="lazy" style="padding:7px 12px;font-size:12px">😴 JUST START ONE</button>':''}</div>
+  <div class="row" style="justify-content:space-between"><h2 style="margin:12px 4px 4px">${isFuture?'Planned':'To do'} · ${mins} min</h2>${(sel===t&&sp.length)?'<button class="btn solid" id="surp" style="padding:8px 13px;font-size:13px">🎲 SURPRISE ME</button>':''}</div>
   ${filters}
   ${open.length?open.map(row).join(''):`<div class="empty">${list.length?(done.length||cf==='all'?'All done. Legend. 🎉':'Nothing open in this filter.'):(isPast?'Nothing was planned that day.':'Nothing here yet. Add a task above.')}</div>`}
   ${done.length?'<h2>Done</h2>'+done.map(row).join(''):''}
@@ -837,14 +970,27 @@ function viewFocus(){
   const fs=window._fsel||'',r=remain(),C=2*Math.PI*122;
   const k=open.find(x=>x.id===fs);
   let ctrl;
-  if(t){ctrl=`<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" id="pz">${t.paused?'RESUME':'PAUSE'}</button>${t.kind==='focus'?`<button class="btn solid" id="fin">✓ ${t.taskId?'FINISHED THE TASK':'FINISH NOW'}</button><button class="btn ghost" id="stp">STOP</button>`:`<button class="btn ghost" id="eb">END BREAK</button>`}</div>`}
+  if(t){ctrl=t.kind==='sprint'
+    ?`<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn solid" id="spw">⚡ DONE IN TIME!</button><button class="btn ghost" id="stp">GIVE UP</button></div>`
+    :`<div class="row" style="justify-content:center;flex-wrap:wrap"><button class="btn" id="pz">${t.paused?'RESUME':'PAUSE'}</button>${t.kind==='focus'?`<button class="btn solid" id="fin">✓ ${t.taskId?'FINISHED THE TASK':'FINISH NOW'}</button><button class="btn ghost" id="stp">STOP</button>`:`<button class="btn ghost" id="eb">END BREAK</button>`}</div>`}
   else{
     ctrl=`<select id="fsel"><option value="">Free focus (no task)</option>${open.map(x=>`<option value="${x.id}" ${x.id===fs?'selected':''}>${(CAT[catOf(x)]||CAT.office).e} ${esc(x.title)} · ${x.min}m</option>`).join('')}</select>
     ${k?'':`<div class="row" style="justify-content:center;margin-top:10px;flex-wrap:wrap">${[10,15,25,45,50].map(m=>`<button class="pill ${(window._fm||25)===m?'on':''}" data-fm="${m}">${m}m</button>`).join('')}</div>`}
     <div class="row" style="justify-content:center;margin-top:14px"><button class="btn solid" id="st" style="padding:13px 34px">START FOCUS</button><button class="btn ghost" id="sb">${S.settings.brk}m BREAK</button></div>`;
   }
-  const label=t?(t.kind==='focus'?(t.taskId?'FOCUS · task':'FOCUS'):'BREAK'):'READY';
+  const label=t?(t.kind==='focus'?(t.taskId?'FOCUS · task':'FOCUS'):(t.kind==='sprint'?'SPRINT ⚡':'BREAK')):'READY';
   const shown=t?r:(k?k.min:(window._fm||25))*60;
+  const allOpen=S.tasks.filter(x=>x.date===today()&&!x.done);
+  const sprintCard=t?'':`<div class="card"><b>⚡ Beat the clock</b>
+   <div class="mini" style="margin:6px 0 10px">Pick a task (or type a tiny one) and finish before time runs out for a bonus.</div>
+   <select id="ssel"><option value="">Free sprint (no task)</option>${allOpen.map(x=>`<option value="${x.id}" ${x.id===window._ssel?'selected':''}>${(CAT[catOf(x)]||CAT.office).e} ${esc(x.title)}</option>`).join('')}</select>
+   <input id="stn" placeholder="…or type a tiny task" style="margin-top:8px" autocomplete="off">
+   <div class="row" style="justify-content:center;margin-top:10px">${[5,10,15].map(m=>`<button class="pill ${(window._sm||10)===m?'on':''}" data-sm="${m}">${m} min</button>`).join('')}</div>
+   <div class="row" style="justify-content:center;margin-top:12px"><button class="btn solid" id="sps">⚡ START SPRINT</button></div></div>`;
+  const soundCard=`<div class="card"><b>🎧 Focus sound</b>
+   <div class="opts">${SND.map(o=>`<button class="pill ${(S.settings.snd||'off')===o[0]?'on':''}" data-snd="${o[0]}">${o[1]} ${o[2]}</button>`).join('')}</div>
+   <div class="row" style="margin-top:4px"><span class="mini">Volume</span><input type="range" id="vol" min="0" max="100" value="${S.settings.vol==null?60:S.settings.vol}" style="padding:0;border:0;background:none"></div>
+   <div class="mini" style="margin-top:6px">Plays while a focus or sprint timer runs and the app is open. Made on the phone, nothing downloaded.</div></div>`;
   const brk=(t&&t.kind==='break')?`<div class="card"><b>☕ Break quick wins</b>${breakListHTML()||'<div class="mini" style="margin-top:6px">No Home or Fun tasks left today — just enjoy the break 🌿</div>'}</div>`:'';
   return `<div class="card" style="text-align:center">
    <div class="orbwrap"><canvas id="orb"></canvas>
@@ -854,7 +1000,7 @@ function viewFocus(){
    <div class="opts">${ORB_STYLES.map(o=>`<button class="pill ${S.settings.orb===o[0]?'on':''}" data-os="${o[0]}">${o[1]}</button>`).join('')}</div>
    <div class="opts">${Object.keys(PALS).map(p=>`<button class="pdot ${S.settings.pal===p?'on':''}" data-op="${p}" aria-label="${p}" style="background:linear-gradient(135deg,${PALS[p][0]},${PALS[p][1]},${PALS[p][2]})"></button>`).join('')}</div>
    <div style="margin-top:12px">${ctrl}</div></div>
-   ${brk}
+   ${brk}${sprintCard}${soundCard}
    <div class="card mini">Finish a focus session on a task and it's auto-completed with rewards. Done early? Tap FINISH to complete it right away. Tasks marked "no timer" are ticked off from the Plan tab.</div>`;
 }
 function viewLoot(){
@@ -881,6 +1027,7 @@ function viewMe(){
    <div class="stat"><span>Tasks completed</span><span>${S.totalDone}</span></div>
    <div class="stat"><span>Focused minutes</span><span>${S.focusMin}</span></div>
    <div class="stat"><span>Pomodoros</span><span>${S.pomos}</span></div>
+   <div class="stat"><span>Sprints won</span><span>⚡ ${S.sprints||0}</span></div>
    <div class="stat"><span>Streak freezes</span><span>🧊 ${S.freezes}</span></div></div>
   <h2>Companion</h2><div class="card"><div class="charpick">${Object.keys(CHARS).map(c=>`<button class="${S.settings.char===c?'on':''}" data-ch="${c}">${pipSVG(c,'happy')}<span>${CHARS[c].n}</span></button>`).join('')}</div>
    <div class="mini" style="text-align:center;margin-top:6px">Tap to switch — it changes on the widget too.</div></div>
@@ -906,6 +1053,7 @@ function render(){
   m.innerHTML=({today:viewToday,focus:viewFocus,loot:viewLoot,me:viewMe})[tab]();
   m.scrollTop=sc;bind();
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
+  ambSync();
 }
 function openCalendar(){
   let d=parseD(sel),y=d.getFullYear(),mo=d.getMonth();
@@ -951,7 +1099,7 @@ function bind(){
       const go=()=>{const i=$('#ti');if(!i.value.trim()){i.focus();return}addTasks(i.value,window._m,$('#ta').value,sel,window._cat||'office',!!window._nt);render()};
       add.onclick=go;$('#ti').onkeydown=e=>{if(e.key==='Enter')go()};
     }
-    const lz=$('#lazy');if(lz)lz.onclick=()=>{const o=S.tasks.filter(k=>k.date===today()&&!k.done&&!k.nt);if(!o.length)return;const k=rnd(o);say(`Let's do "${k.title}"!`,'excited',2500);startTimer('focus',k.min,k.id);tab='focus';render()};
+    const su=$('#surp');if(su)su.onclick=openSurprise;
     q('[data-r]',b=>b.onchange=()=>toggleRoutine(b.dataset.r,b.dataset.i,b.checked));
     const re=$('#redit');if(re)re.onclick=openRoutineEdit;
   }
@@ -966,8 +1114,18 @@ function bind(){
     const pz=$('#pz');if(pz)pz.onclick=()=>{const t=S.timer;if(t.paused){t.endAt=Date.now()+t.remain*1000;t.paused=false}else{t.remain=remain();t.paused=true}save();render()};
     const fin=$('#fin');if(fin)fin.onclick=()=>finishTimer(true);
     const eb=$('#eb');if(eb)eb.onclick=()=>{S.timer=null;save();render()};
-    const sp=$('#stp');if(sp)sp.onclick=()=>{if(confirm('Stop without finishing? No reward. (Tap FINISH to complete it early instead.)')){S.timer=null;save();render()}};
+    const sp=$('#stp');if(sp)sp.onclick=()=>{if(confirm(S.timer&&S.timer.kind==='sprint'?'Give up this sprint? No bonus.':'Stop without finishing? No reward. (Tap FINISH to complete it early instead.)')){S.timer=null;save();render()}};
     bindBreakList(document);
+    q('[data-snd]',b=>b.onclick=()=>{S.settings.snd=b.dataset.snd;save();if(!S.timer&&b.dataset.snd!=='off'){AMB.prev=Date.now()+6000;setTimeout(ambSync,6100)}else AMB.prev=0;render()});
+    const vol=$('#vol');if(vol)vol.oninput=()=>{S.settings.vol=+vol.value;if(AMB.master)AMB.master.gain.value=ambVol()};
+    if(vol)vol.onchange=()=>save();
+    const ss=$('#ssel');if(ss)ss.onchange=()=>{window._ssel=ss.value};
+    q('[data-sm]',b=>b.onclick=()=>{window._sm=+b.dataset.sm;q('[data-sm]',x=>x.classList.toggle('on',x===b))});
+    const sps=$('#sps');if(sps)sps.onclick=()=>{
+      let id=($('#ssel').value)||null;const nm=($('#stn').value||'').trim(),m=window._sm||10;
+      if(nm){const k={id:uid(),title:nm,min:m,date:today(),done:false,at:'',notified:false,cat:window._cat||'office',nt:false};S.tasks.push(k);id=k.id;save()}
+      startSprint(m,id)};
+    const spw=$('#spw');if(spw)spw.onclick=sprintWin;
   }
   if(tab==='loot'){$('#sc').onclick=openScratch;$('#egg').onclick=openEgg}
   if(tab==='me'){
@@ -1017,7 +1175,9 @@ if(NATIVE){
 }
 setTimeout(()=>{if(Date.now()-(S.lastCheck||0)>3*3600e3)checkUpdate(false)},5000);
 document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){try{AMB.ctx&&AMB.ctx.suspend()}catch(e){}}
   if(!document.hidden){
+    try{AMB.ctx&&AMB.ctx.state==='suspended'&&AMB.ctx.resume()}catch(e){}
     rollover();
     if(S.timer&&!S.timer.paused&&remain()<=0)finishTimer();else if(tab!=='focus')render();
     if(Date.now()-(S.lastCheck||0)>3*3600e3)checkUpdate(false);
