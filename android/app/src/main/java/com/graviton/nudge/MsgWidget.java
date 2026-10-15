@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.SystemClock;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import org.json.JSONArray;
@@ -119,8 +121,51 @@ public class MsgWidget extends AppWidgetProvider {
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         if ((hour >= 22 || hour < 5) && "happy".equals(mood)) mood = "sleepy";
 
+        // a running timer takes over the widget text
+        JSONObject tm = null;
+        try {
+            String ts = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("timer", null);
+            if (ts != null && !ts.isEmpty()) tm = new JSONObject(ts);
+        } catch (Exception ignored) { }
+        boolean chrono = false;
+        String msgText = null;
+        long base = 0L;
+        if (tm != null) {
+            String kind = tm.optString("kind", "focus");
+            String label = tm.optString("label", "");
+            boolean paused = tm.optBoolean("paused");
+            boolean ringNow = tm.optBoolean("ring");
+            long endAt = tm.optLong("endAt");
+            long remain = tm.optLong("remainMs");
+            String kn = "sprint".equals(kind) ? "SPRINT ⚡" : ("break".equals(kind) ? "BREAK ☕" : "FOCUS");
+            stats = kn + (label.isEmpty() ? "" : "  ·  " + label);
+            next = "Tap to open Nudge";
+            if (ringNow) {
+                mood = "excited";
+                msgText = "⏰ Time's up!";
+            } else if (paused) {
+                mood = "focus";
+                long sec = Math.max(0L, remain / 1000L);
+                msgText = "⏸ " + (sec / 60) + ":" + (sec % 60 < 10 ? "0" : "") + (sec % 60);
+                next = "Paused · tap to open";
+            } else {
+                mood = "break".equals(kind) ? "happy" : ("sprint".equals(kind) ? "excited" : "focus");
+                chrono = true;
+                base = SystemClock.elapsedRealtime() + (endAt - System.currentTimeMillis());
+            }
+        }
+
         v.setTextViewText(R.id.stats, stats);
-        v.setTextViewText(R.id.msg, pick(msgs, mood));
+        if (chrono) {
+            v.setViewVisibility(R.id.msg, View.GONE);
+            v.setViewVisibility(R.id.chrono, View.VISIBLE);
+            v.setChronometerCountDown(R.id.chrono, true);
+            v.setChronometer(R.id.chrono, base, null, true);
+        } else {
+            v.setViewVisibility(R.id.chrono, View.GONE);
+            v.setViewVisibility(R.id.msg, View.VISIBLE);
+            v.setTextViewText(R.id.msg, msgText != null ? msgText : pick(msgs, mood));
+        }
         v.setTextViewText(R.id.next, next);
         setFrames(c, v, ch, moodIndex(mood));
 
