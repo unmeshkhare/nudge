@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#080b14">
-<meta name="nudge-ui" content="4">
+<meta name="nudge-ui" content="5">
 <title>Nudge</title>
 <style>
 :root{--sat:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));--sab:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px));--bg:#080b14;--card:rgba(255,255,255,.04);--line:rgba(255,255,255,.09);--txt:#e8ecf8;--dim:#7f89a8;--c1:#6ff3ff;--c2:#8a7bff;--pink:#ff7ad9;--gold:#ffd166;--ok:#5dffb0}
@@ -113,8 +113,8 @@ input:focus,textarea:focus{border-color:var(--c1)}
 .cell.r1{border-color:rgba(111,243,255,.4)}.cell.r2{border-color:rgba(138,123,255,.7)}.cell.r3{border-color:var(--gold);box-shadow:0 0 14px rgba(255,209,102,.3)}
 .cell small{position:absolute;right:5px;bottom:2px;font-size:10px;color:var(--dim)}
 .stat{display:flex;justify-content:space-between;align-items:center;padding:9px 2px;border-bottom:1px solid var(--line);font-size:14px;gap:10px}.stat:last-child{border:0}.stat span:first-child{color:var(--dim)}
-.charpick{display:flex;gap:10px;justify-content:center;margin:6px 0 2px}
-.charpick button{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:8px 10px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--dim)}
+.charpick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:6px 0 2px}
+.charpick button{min-width:0;border:1px solid var(--line);background:var(--card);border-radius:16px;padding:8px 6px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--dim)}
 .charpick button.on{border-color:var(--c2);background:rgba(138,123,255,.18);color:var(--txt)}
 .charpick svg{width:56px;height:56px;overflow:visible}
 /* modal */
@@ -176,7 +176,7 @@ ol.steps li{margin:6px 0}
 
 <script>
 'use strict';
-const UI_V=4;
+const UI_V=5;
 const UPDATE_URL='https://raw.githubusercontent.com/unmeshkhare/nudge/main/www/app.html';
 const CHARS={
   pip:{n:'Pip',a:'#9ff6ff',b:'#7a63ff',acc:'#6ff3ff',cheek:'#ff7ad9',glow:'rgba(138,123,255,.45)',kind:'antenna'},
