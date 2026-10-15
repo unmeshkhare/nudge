@@ -28,6 +28,8 @@ jobs:
           else
             echo "::warning::NUDGE_KEYSTORE_B64 secret missing - APK will not install over the old one"
           fi
+      - name: Remove old blocker files
+        run: rm -f android/app/src/main/java/com/graviton/nudge/FocusGuardService.java android/app/src/main/res/xml/accessibility_service_config.xml
       - run: npm ci
       - run: npm install --no-save typescript
       - run: npx cap sync android
